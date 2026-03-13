@@ -1,0 +1,289 @@
+#this is a script for estimating required sample size for Birch Burbots.
+
+#package and dependency installation
+install.packages("recapr")
+install.packages("rlist")
+install.packages("prevR")
+install.packages("s2")
+install.packages("concaveman")
+install.packages("geosphere")
+
+#load libraries
+library(recapr)
+library(rlist)
+library(prevR)
+library(ggplot2)
+library(concaveman)
+library(sf)
+library(sp)
+library(s2)
+library(geosphere)
+
+
+
+#under the recapture scenarios 
+
+?n2RR
+
+
+#quickly rewrite the n2RR function to remove the n1 dependency 
+
+#twice modified function to account for multiple N values
+#lots of this is originally Matt Tyers code. 
+n2RR_plot_multi_N <- function(N_values, 
+                              conf = c(0.99, 0.95, 0.9, 0.85, 0.8, 0.75),
+                              acc = c(0.5, 0.25, 0.2, 0.15, 0.1, 0.05, 0.01)) {
+  
+  accall <- c(0.5, 0.25, 0.2, 0.15, 0.1, 0.05, 0.01)
+  
+  # Validate user input
+  conf <- conf[conf %in% c(0.99, 0.95, 0.9, 0.85, 0.8, 0.75)]
+  acc <- acc[acc %in% accall]
+  
+  # Sort accuracy for consistency
+  acc <- sort(acc, decreasing = TRUE)
+  results <- data.frame()
+  for (N in N_values) {
+    for (i in 1:length(conf)) {
+      # Precomputed critical values for each confidence level
+      Draw <- (conf[i] == 0.99) * c(48.707, 135.529229, 196.2951017, 325.8179089, 
+                                    694.4679116, 2684.858928, 66380.75202) +
+        (conf[i] == 0.95) * c(24.35001031, 69.83385388, 103.9898307, 178.3155987, 
+                              391.4504252, 1543.721381, 38421.81) +
+        (conf[i] == 0.9) * c(14.7893, 45.79545303, 69.92066847, 122.361479, 
+                             272.5531006, 1084.149431, 27057.47792) +
+        (conf[i] == 0.85) * c(9.74015, 33.5685, 52.11740329, 92.33768116, 
+                              207.4134585, 829.0626252, 20722.71022) +
+        (conf[i] == 0.8) * c(6.64835, 25.80786976, 40.54417323, 72.44665423, 
+                             163.6673542, 656.3687191, 16423.22022) +
+        (conf[i] == 0.75) * c(4.700876432, 20.3312336, 32.2203623, 57.93630836, 
+                              131.443365, 528.4288547, 13232.17423)
+      D <- Draw[accall %in% acc]
+      # Calculate sample sizes
+      n2_2 <- ceiling(N / (sqrt((N - 1) / D) + 1))
+      # store data 
+      df <- data.frame(
+        N = rep(N, length(acc)),
+        Confidence = rep(conf[i], length(acc)),
+        Precision = acc,
+        SampleSize = n2_2
+      )
+      results <- rbind(results, df)
+    }
+  }
+  
+  return(results)
+}
+
+N_values <- c(10:3000, by = 10)
+
+# Generate data frame for multiple N values
+result_df <- n2RR_plot_multi_N(N_values, conf = c(0.95, 0.9, 0.85, 0.8), acc = c(0.15, 0.2, 0.25, 0.5))
+
+ggplot(result_df, aes(x = N, y = SampleSize, color = as.factor(Precision))) +
+  geom_line(size = 1) +
+  geom_line(aes(x = 275), color = "black")+
+  geom_line(aes(x = 1885), color = "black")+
+  scale_color_brewer(palette = "Set1", name = "Precision (acc)") +
+  labs(title = "Sample size requirements across pop sizes with Variable Confidence",
+       x = "Population Size", 
+       y = "Sample Size") +
+  facet_wrap(~Confidence, scales = "free_y") +  # Facet by N values
+  theme_minimal()
+
+ggsave(filename = "Sample_Size_Surface_RR.png")
+#saved this as a figure. 
+#want to rearrange such that we can plot sample size by simulated relative accuracy 
+
+
+
+#MCMC simulations for CPUE: 
+
+
+
+####
+##Below is an adaptation of a method created by Jordy 
+
+
+#this remains the same as the original code. 
+get.geo.dist = function(long1, lat1, long2, lat2, units = "m") {
+  print(c(long1, lat1, long2, lat2))
+  longlat1 = purrr::map2(long1, lat1, function(x,y) c(x,y))
+  longlat2 = purrr::map2(long2, lat2, function(x,y) c(x,y))
+  distance_list = purrr::map2(longlat1, longlat2, function(x,y) geosphere::distHaversine(x, y))
+  distance_m = list.extract(distance_list, position = 1)
+  if (units == "km") {
+    distance = distance_m / 1000.0;
+  }
+  else if (units == "miles") {
+    distance = distance_m / 1609.344
+  }
+  else {
+    distance = distance_m
+  }
+  return(distance)
+}
+
+
+
+#modified pick.coords function using the sf package and also sampling the entire lake (n_sets not required)
+pick.coords <- function(lakelines, n_sets, seed = 123, quiet = T) {
+  set.seed(seed)
+  bbox <- st_bbox(lakelines)
+  x_min <- bbox[1]
+  x_max <- bbox[3]
+  y_min <- bbox[2]
+  y_max <- bbox[4]
+  
+  # Calculate number of grid points in the x and y directions that cover the lake. Basically make the grid
+  n_x <- floor(get.geo.dist(x_min, y_min, x_max, y_min) / 125)
+  n_y <- get.geo.dist(x_min, y_min, x_min, y_max) / 125 # ~95
+  
+  print(c(n_x, n_y))
+  
+  possible_x <- seq(x_min, x_max, length = n_x)
+  possible_y <- seq(y_min, y_max, length = n_y)
+  
+  points <- expand.grid(x = possible_x, y = possible_y)
+  
+  points_sf <- st_as_sf(points, coords = c("x", "y"), crs = st_crs(lakelines))
+
+  points_within <- st_intersection(points_sf, lakelines)
+  
+  # Extract the points that are within the lakelines (polygon)
+  
+  #sets <- points[apply(points_within, 1, any),]
+  p<-ggplot()+
+    geom_sf(data = lakelines) + 
+    geom_sf(data = points_within)
+  print(p)
+  # Generate a table of y-values (transects) for the selected sets
+  tt <- table(st_coordinates(points_within)[, 2]) # Extracts y-values
+  
+  print(tt)
+  
+  # Create presence-absence matrix
+  max_tt <- max(tt)
+  ts_mat <- matrix(FALSE, nrow = max_tt, ncol = length(tt))
+  
+  for (i in seq_along(tt)) {
+    ts_mat[1:tt[i], i] <- TRUE
+  }
+  
+  # Output a structured list
+  return(list(ts_mat = ts_mat, table = tt, set_coords = points_within))
+}
+
+#this is all based on the estimate of CPUE
+#can iterate over several values of N.
+#here q, or "catchability" is essentially how good the "effort" (ie traps) actually are at catching the fish. 
+#make the assumption that cpue is proportional to N*q/area = total numbers*catchability/maximum area that can be fished.  
+#the true estimate of CPUE assumes total effort. This study also employs total effort. 
+
+
+#we can also assess average cpue by the number of samples/number of traps? 
+
+assess.accuracy <- function(ts_mat, N_vec, sig_vec, q_bar, sd_q, acc_lev, A, n_mc=1000){
+  #get the number of columns in the matrix
+  n <- ncol(ts_mat)
+  #gets the average SETS in a transect (= mbar?)
+  m_bar <- mean(apply(ts_mat, MARGIN = 2, sum))
+  print(m_bar)
+  #creates an empty matrix
+  ret_mat_CPUE <- matrix(NA, length(N_vec), length(sig_vec))
+  for(i in 1:length(N_vec)){
+    N <- N_vec[i]
+    #sample the value of "catchability" from the distribution of q. 
+    #maybe I can use some other Burbot paper for this. 
+    q <- rnorm(1, q_bar, sd_q) # Check sd(q)
+    print("q")
+    print(q)
+    
+    #this is the average CPUE given some area and some value of q and the estimated N
+    mu <- N/A*q
+    #because q is relatively low, we generate a CPUE average much lower than the true probably hopefully
+    print("mu")
+    print(mu)
+    for(j in 1:length(sig_vec)){
+      #get the sigma value
+      sig <- sig_vec[j]
+      c_mat <- matrix(NA, nrow(ts_mat), ncol(ts_mat))
+      #build an empty matrix 
+      l_1 <- 0
+      #populate the matrix with artificial catch data for each set (how we measure CPUE in the field given our limited "E")
+      for (k in 1:n_mc){
+        for(t in 1:ncol(c_mat)){
+          ep <- rnorm(1, 0, sig)
+          gam <- mu/exp(.5*sig^2)*exp(ep)
+          for(s in 1:nrow(ts_mat)){
+            if (ts_mat[s, t]){
+              #draw values for each element of the matrix. 
+              c_mat[s,t] <- rpois(1, gam)
+            }
+          }
+        }
+        #calculate the estimated average CPUE based on the equation in the OP plan
+        cpue_est <- 1/(n*m_bar)*sum(c_mat, na.rm=T)
+        
+        #determine the accuracy 
+        acc <- abs(mu-cpue_est)/mu
+        if (acc < acc_lev[1]){
+          l_1 <- l_1+1
+        }
+      }
+      ret_mat_CPUE[i,j] <- l_1/n_mc
+    }
+  }
+  rownames(ret_mat_CPUE) <- as.character(N_vec)
+  colnames(ret_mat_CPUE) <- as.character(sig_vec)
+  return(ret_mat_CPUE)
+}
+
+
+
+#do some geographic wrangling to actually get a polygon out of this data
+birch_shape <- st_read("birch_gis")
+birch_s2<- st_as_s2(birch_shape)
+birch_s2<- st_as_sf(birch_s2)
+conv_nor <- concaveman(birch_s2)
+
+
+#Apply the functions for MC simulations for CPUE precision under variable "true" values of N.  
+#this basically makes a matrix representing sampling every 125 m within the lake. 
+mat<-pick.coords(conv_nor)
+ts_mat<- mat$ts_mat
+
+
+#these aparameterizations are "best guesses".
+#sd_q is a blind guess in the dark.ts_mat <- mat$ts_mat
+#here I will essentially let q (catchability) be approximately equal to the sample size lower limit/ number of traps. 
+#We still achieve precision criteron when q is as low as 0.2
+
+q = 97/196
+N_vec <- seq(400, 600, by=10) 
+sig_vec <- c(0.1,0.3, 0.5, 0.85)
+q_bar <- q
+sd_q <- 0.1
+acc_lev <- 0.3
+A <- 327 #this is in Hectares in the original code but It's not clear why. 
+
+accuracy1<- assess.accuracy(ts_mat, N_vec, sig_vec, q_bar, sd_q, acc_lev, A)
+
+q = 97/196
+N_vec <- seq(400, 600, by=10) 
+sig_vec <- c(0.1,0.3, 0.5, 0.85)
+q_bar <- q
+sd_q <- 0.1
+acc_lev <- 0.2
+A <- 327 #this is in Hectares in the original code but It's not clear why. 
+
+accuracy2<- assess.accuracy(ts_mat, N_vec, sig_vec, q_bar, sd_q, acc_lev, A)
+
+
+write.table(accuracy1, file = "CPUE precision output 30% accuracy.csv")
+
+write.table(accuracy2, file = "CPUE precision output 20% accuracy.csv")
+
+
+#another way that this could be done. 
+

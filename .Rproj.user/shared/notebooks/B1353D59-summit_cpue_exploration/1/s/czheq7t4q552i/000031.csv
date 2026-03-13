@@ -1,0 +1,2 @@
+"0",""
+"0","cpue_raw_1990_small15<- cpue_boot(mat_1990, raw_data_only = TRUE)"

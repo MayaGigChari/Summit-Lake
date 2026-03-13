@@ -1,0 +1,7 @@
+"0","length_dist<- read_excel(""lengths_combined.xlsx"")"
+"0",""
+"0","# abundance estimates are already very bad. "
+"0",""
+"0","#read in data from 1889 abd 1991"
+"0",""
+"0","length_dist"

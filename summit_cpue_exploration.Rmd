@@ -1,0 +1,469 @@
+---
+title: "summit_exploration"
+output: html_document
+date: "2026-03-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+  warning = FALSE,
+  message = FALSE
+)
+library(readxl)
+library(knitr)
+library(tidyverse)
+library(janitor)
+source("cpue.R")
+```
+
+## Quick look at 1990 and 1991 hoop trap data with geog info for Summit Lake
+
+```{r}
+length_dist<- read_excel("lengths_combined.xlsx")
+
+# abundance estimates are already very bad. 
+
+#read in data from 1889 abd 1991
+
+length_dist
+
+df_long <- length_dist %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "year",
+    values_to = "value"
+  )
+
+
+ggplot(df_long, aes(x = value, fill = factor(year))) +
+  geom_histogram(position = "identity", alpha = 0.4, bins = 15) +
+  labs(fill = "Year", title = "length distribution over all years")
+
+
+
+df_long_recent<-df_long%>%
+  filter(year %in% c("1990", "1991"))
+
+
+ggplot(df_long_recent, aes(x = value, fill = factor(year))) +
+  geom_histogram(position = "identity", alpha = 0.4, bins = 15) +
+  labs(fill = "Year", title = "length distribution 1990 and 1991")
+
+
+```
+
+
+### these length distributions look similar enough. Probably consistent distribution across time although no formal testing was done. However, the sample size is relatively small, particularly for 1990 and 1991
+
+### now we will load the 1990 and 1991 datasets and look at the CPUE by depth
+
+
+```{r}
+
+data_1990<-read_excel("1990_dat.xlsx")
+
+colnames(data_1990)
+
+data_1990<-janitor::remove_empty(data_1990)
+
+data_1990<- clean_names(data_1990)
+
+data_1990<- data_1990
+
+#check to see the actual number of unique traps set above 15 m
+data_1990%>%
+  filter(depth <= 15*3.28084)%>%
+  group_by(trans, trap_number)%>%
+  count()%>%
+  nrow()
+
+
+# we need to apply the CPUE bootstrap to this. 
+
+matricized_1990<- data_1990%>%
+  filter(depth<=15*3.28084)%>%
+  group_by(trans, trap_number)%>%
+  summarise(
+    count = sum(tl >= 450)
+  )%>%
+  select(transect_number = trans, trap_number, count)%>%
+  mutate(across(everything(), ~replace_na(.x,0)))
+
+num_sets<- nrow(matricized_1990)
+print("number of sets in shallow water < 15 m")
+print(num_sets)
+
+transect_numbers<- length(unique(matricized_1990$transect_number))
+transect_sizes<-matricized_1990%>%
+  group_by(transect_number)%>%
+  summarise(
+    transect_sizes= n_distinct(trap_number)
+  )
+
+max_transect_size<- max(transect_sizes$transect_sizes)
+
+
+transect_matrix_1990<- matrix(NA, nrow = transect_numbers, ncol = max_transect_size)
+
+
+mat_1990<- pop_mat(matricized_1990, transect_matrix_1990, transect_numbers)
+
+#now we have the matrix. 
+
+cpue_1990_small15<- cpue_boot(mat_1990)
+
+cpue_raw_1990_small15<- cpue_boot(mat_1990, raw_data_only = TRUE)
+
+
+cpue_1990_small15
+
+```
+### Let's see what it looks like if we kept in ALL the depths under 90 ft
+
+```{r}
+
+data_1990%>%
+  group_by(trans, trap_number)%>%
+  count()%>%
+  nrow()
+
+matricized_1990<- data_1990%>%
+  filter(depth <90)%>%
+  group_by(trans, trap_number)%>%
+  summarise(
+    count = sum(tl >= 450)
+  )%>%
+  select(transect_number = trans, trap_number, count)%>%
+  mutate(across(everything(), ~replace_na(.x,0)))
+
+
+num_sets<- nrow(matricized_1990)
+print("number of sets acrpss all depths in 1990")
+print(num_sets)
+
+
+transect_numbers<- length(unique(matricized_1990$transect_number))
+transect_sizes<-matricized_1990%>%
+  group_by(transect_number)%>%
+  summarise(
+    transect_sizes= n_distinct(trap_number)
+  )
+
+
+
+
+max_transect_size<- max(transect_sizes$transect_sizes)
+
+
+transect_matrix_1990<- matrix(NA, nrow = transect_numbers, ncol = max_transect_size)
+
+
+mat_1990<- pop_mat(matricized_1990, transect_matrix_1990, transect_numbers)
+
+#now we have the matrix. 
+
+cpue_1990_alldata<- cpue_boot(mat_1990)
+
+cpue_raw_1990_alldata<- cpue_boot(mat_1990, raw_data_only = TRUE)
+
+
+cpue_1990_alldata
+
+
+```
+### this is normal and follows the Rao-Wu stipulation. 
+
+### Now let's try it for only fish caught in > 15 m
+
+```{r}
+
+#now let's try for fish > 15 m only
+
+data_1990%>%
+  filter(depth >= 15*3.28084)%>%
+  group_by(trans, trap_number)%>%
+  count()%>%
+  nrow()
+
+matricized_1990<- data_1990%>%
+  group_by(trans, trap_number)%>%
+  filter(depth>15*3.28084)%>%
+  summarise(
+    count = sum(tl >=450)
+  )%>%
+  select(transect_number = trans, trap_number, count)%>%
+  mutate(across(everything(), ~replace_na(.x,0)))
+
+
+transect_numbers<- length(unique(matricized_1990$transect_number))
+transect_sizes<-matricized_1990%>%
+  group_by(transect_number)%>%
+  summarise(
+    transect_sizes= n_distinct(trap_number)
+  )
+
+num_sets<- nrow(matricized_1990)
+print("number of sets in deep water > 15 m in 1990")
+print(num_sets)
+
+
+max_transect_size<- max(transect_sizes$transect_sizes)
+
+
+transect_matrix_1990<- matrix(NA, nrow = transect_numbers, ncol = max_transect_size)
+
+
+mat_1990<- pop_mat(matricized_1990, transect_matrix_1990, transect_numbers)
+
+#now we have the matrix. 
+
+cpue_1990_large15<- cpue_boot(mat_1990)
+
+cpue_raw_1990_large15<- cpue_boot(mat_1990, raw_data_only = TRUE)
+
+
+cpue_1990_large15
+
+```
+
+
+### Let's look at 1991
+
+
+```{r}
+#################Let's do the same thing for 1991
+
+data_1991<-read_excel("1991_dat.xlsx")
+
+colnames(data_1991)
+
+data_1991<-janitor::remove_empty(data_1991)
+
+data_1991<- clean_names(data_1991)
+
+data_1991 
+
+data_1991%>%
+  filter(depth <= 15*3.28084)%>%
+  group_by(trans, trap_number)%>%
+  count()%>%
+  nrow()
+# we need to apply the CPUE bootstrap to this. 
+
+matricized_1991<- data_1991%>%
+  filter(depth<=15*3.28084)%>%
+  group_by(trans, trap_number)%>%
+  summarise(
+    count = sum(tl >=450)
+  )%>%
+  select(transect_number = trans, trap_number, count)%>%
+  mutate(across(everything(), ~replace_na(.x,0)))
+
+num_sets<- nrow(matricized_1991)
+print("number of sets in shallow water < 15 m in 1991")
+print(num_sets)
+
+transect_numbers<- lengtransect_numbers<- length(unique(matricized_1991$transect_number))
+transect_sizes<-matricized_1991%>%
+  group_by(transect_number)%>%
+  summarise(
+    transect_sizes= n_distinct(trap_number)
+  )
+
+
+
+
+max_transect_size<- max(transect_sizes$transect_sizes)
+
+
+transect_matrix_1991<- matrix(NA, nrow = transect_numbers, ncol = max_transect_size)
+
+
+mat_1991<- pop_mat(matricized_1991, transect_matrix_1991, transect_numbers)
+
+#now we have the matrix. 
+
+cpue_1991_small15<- cpue_boot(mat_1991)
+
+cpue_raw_1991_small15<- cpue_boot(mat_1991, raw_data_only = TRUE)
+
+
+cpue_1991_small15
+
+
+```
+
+
+### Let's try it with all data not stratifying by depth
+```{r}
+
+
+
+data_1991%>%
+  group_by(trans, trap_number)%>%
+  count()%>%
+  nrow()
+
+matricized_1991<- data_1991%>%
+  group_by(trans, trap_number)%>%
+  summarise(
+    count = sum(tl >= 450)
+  )%>%
+  select(transect_number = trans, trap_number, count)%>%
+  mutate(across(everything(), ~replace_na(.x,0)))
+
+num_sets<- nrow(matricized_1991)
+print("number of sets across depths in 1991")
+print(num_sets)
+
+transect_numbers<- length(unique(matricized_1991$transect_number))
+transect_sizes<-matricized_1991%>%
+  group_by(transect_number)%>%
+  summarise(
+    transect_sizes= n_distinct(trap_number)
+  )
+
+
+
+
+max_transect_size<- max(transect_sizes$transect_sizes)
+
+
+transect_matrix_1991<- matrix(NA, nrow = transect_numbers, ncol = max_transect_size)
+
+
+mat_1991<- pop_mat(matricized_1991, transect_matrix_1991, transect_numbers)
+
+#now we have the matrix. 
+
+cpue_1991_alldata<- cpue_boot(mat_1991)
+
+cpue_raw_1991_alldata<- cpue_boot(mat_1991, raw_data_only = TRUE)
+
+cpue_1991_alldata
+
+
+```
+
+
+### this is normal and follows the Rao-Wu stipulation. 
+
+
+
+### now let's try for fish > 15 m only
+
+```{r}
+
+data_1991%>%
+  filter(depth >= 15*3.28084)%>%
+  group_by(trans, trap_number)%>%
+  count()%>%
+  nrow()
+
+matricized_1991<- data_1991%>%
+  group_by(trans, trap_number)%>%
+  filter(depth>=15*3.28084)%>%
+  summarise(
+    count = sum(tl >=450)
+  )%>%
+  select(transect_number = trans, trap_number, count)%>%
+  mutate(across(everything(), ~replace_na(.x,0)))
+
+num_sets<- nrow(matricized_1991)
+print("number of sets in deep water > 15 m in 1991")
+print(num_sets)
+
+transect_numbers<- length(unique(matricized_1991$transect_number))
+transect_sizes<-matricized_1991%>%
+  group_by(transect_number)%>%
+  summarise(
+    transect_sizes= n_distinct(trap_number)
+  )
+
+
+
+
+max_transect_size<- max(transect_sizes$transect_sizes)
+
+
+transect_matrix_1991<- matrix(NA, nrow = transect_numbers, ncol = max_transect_size)
+
+
+mat_1991<- pop_mat(matricized_1991, transect_matrix_1991, transect_numbers)
+
+#now we have the matrix. 
+
+cpue_1991_large15<- cpue_boot(mat_1991)
+
+cpue_raw_1991_large15<- cpue_boot(mat_1991, raw_data_only = TRUE)
+
+cpue_1991_large15
+
+```
+### Here are my initial thoughts. 
+
+### CPUE for shallow depths and deep depths are kind of similar in 1991 and 1990. CPUE for deep depths are also kind of similar in 1991 and 1990. However, CPUE of shallow depths and deep depths, in both years, are not similar, and while I haven't done statistics, I also am unsure if CPUE for shallow depths is similar to total CPUE in both years. All of these statements depend on what our criterion of "similar" is. 
+
+Now let's make a table
+```{r}
+
+cpue_1991_alldata
+cpue_1990_alldata
+
+df_all <- data.frame(
+  "cpue mean" = c(cpue_1990_alldata$mean, cpue_1991_alldata$mean),
+  "SE" = c(cpue_1990_alldata$sd, cpue_1991_alldata$sd),
+  row.names = c("1990", "1991")
+)
+
+
+df_shallow <- data.frame(
+  "cpue mean" = c(cpue_1990_small15$mean, cpue_1991_small15$mean),
+  "SE" = c(cpue_1990_small15$sd, cpue_1991_small15$sd),
+  row.names = c("1990", "1991")
+)
+
+
+df_deep <- data.frame(
+  "cpue mean" = c(cpue_1990_large15$mean, cpue_1991_large15$mean),
+  "SE" = c(cpue_1990_large15$sd, cpue_1991_large15$sd),
+  row.names = c("1990", "1991")
+)
+
+
+kable(df_all)
+kable(df_shallow)
+kable(df_deep)
+
+
+#get the raw data
+
+
+cpue_output_df<- data.frame(
+  shallow_1990 = cpue_raw_1990_small15,
+  deep_1990 = cpue_raw_1990_large15,
+  all_1990 = cpue_raw_1990_alldata,
+  shallow_1991 = cpue_raw_1991_small15,
+  deep_1991 = cpue_raw_1991_large15,
+  all_1991 = cpue_raw_1991_alldata
+)
+
+cpue_output_df<- cpue_output_df %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "strata",
+    values_to = "value"
+  )
+
+cpue_output_df
+
+anova<-aov(value~strata, data = cpue_output_df)
+TukeyHSD(anova)
+summary(anova)
+```
+
+
+Questions: 
+
+1) Is it fair to assume that the distribution of fish is the same in shallow and deeper parts of the lake? Is it fair to assume that shallow CPUE is a proxy for fish availability 

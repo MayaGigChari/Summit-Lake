@@ -1,0 +1,28 @@
+{
+    "id": "96655388",
+    "path": "H:/Operational_Plans/Summit/summit_cpue_exploration.Rmd",
+    "project_path": "summit_cpue_exploration.Rmd",
+    "type": "r_markdown",
+    "hash": "0",
+    "contents": "",
+    "dirty": true,
+    "created": 1772581534283.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "tempName": "Untitled1",
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "466,0",
+        "scrollLine": "466",
+        "last_setup_crc32": "69512425725ab405"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1772668060,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1772746679065,
+    "read_only": false,
+    "read_only_alternatives": []
+}

@@ -1,0 +1,102 @@
+#unequal effort in n1 and n2: jordy code 
+#TODO: modify this so it fits the burbot scenario. 
+library(recapr)
+
+obj_fun <- function(n_1, n_2, e_1, e_2){
+  return(n_1*e_1+n_2*e_2)
+}
+# Main routine
+e_1 <- 1/0.44
+e_2 <- 1/0.31
+conf <- 0.9
+acc <- 0.25
+n_vec <- c(500, 1000, 1500, 2000, 2500)
+results <- matrix(NA, nrow=length(n_vec), ncol=3)
+for (j in 1:length(n_vec)){
+  N <- n_vec[j]
+  mat <- matrix(NA, nrow=N, ncol=3)
+  for (n_1 in 1:N){
+    n_2 <- n2RR(N, n_1, conf=conf, acc=acc)[[1]][1,2] # Robson and Regier using Tyers (2019)
+    mat[n_1,] <- c(n_1, n_2, obj_fun(n_1, n_2, e_1, e_2))
+  }
+  results[j, 1] <- N
+  results[j, 2:3] <- mat[mat[,3]==min(mat[,3]),][1:2]
+}
+results
+
+
+
+#another function that's sort of useless for CPUE. 
+
+q_hat <- 0.2  # Estimated catchability coefficient
+sd_q <- 0.0005  # 
+A <- 327  # Survey area (adjust as needed)
+sigma <- 0.35  # Between-transect log-scale standard deviation
+
+# Compute true mean CPUE
+true_mu <- N * q_hat / A  
+
+# Store simulation results
+within_30_percent <- rep(NA, num_sims)
+
+# Monte Carlo simulation
+for (sim in 1:num_sims) {
+  # Step 1: Simulate catchability coefficient (q)
+  q_sim <- rnorm(1, mean = q_hat, sd = sd_q)
+  
+  mu_sim <- N * q_sim / A  
+  
+  #Step 3: Simulate between-transect variability
+  #this is not spatially explicit. 
+  epsilon <- rnorm(num_sets, mean = 0, sd = sigma)
+  gamma <- mu_sim * exp(epsilon - 0.5 * sigma^2)  
+  
+  # Step 4: Simulate catch data (Poisson distributed)
+  catches <- rpois(num_sets, lambda = gamma)  
+  
+  # Step 5: Estimate CPUE from simulated catch data
+  estimated_cpue <- mean(catches)
+  
+  # Step 6: Check if estimated CPUE is within 30% of true value
+  within_30_percent[sim] <- (estimated_cpue >= 0.8 * true_mu) & (estimated_cpue <= 1.2 * true_mu)
+}
+
+# Compute proportion of simulations meeting accuracy criterion
+success_rate <- mean(within_30_percent)
+
+# Output results
+cat("Proportion of simulations where estimated CPUE is within 20% of true CPUE:", success_rate, "\n")
+
+# Decision: Is 196 sets enough?
+if (success_rate >= 0.90) {
+  cat("✅ 196 sets are sufficient to meet the accuracy criterion.\n")
+} else {
+  cat("❌ 196 sets may not be sufficient; consider increasing sample size.\n")
+}
+
+
+#some more notes on JOrdy code and other methods: 
+#notes: Jordy Package: 
+#simulation monte carlo method to get an idea of whether or not sampling effort is appropriate
+#whatever code on Github repo test and make sure stuff is doing what it's intended to do and it makes sense 
+#simulating data: no previous year abundance information, running whatever sampling 
+#fish and game boilerplate sampling size stuff: give basic numbers 
+#used best guess of some
+
+
+# a simpler simulation method: 
+
+#we want an estimate of CPUE such that the estimator is within 30% of the true value 90% of the time 
+#We know the estimate of CPUE = 1/n*m_avg*(sum of all the fish caught)
+#here, m_avg is the average number of fish caught per transect and n is the number of transects, I believe 
+#We want to ask: how many fish do we need to sample such that the estimate of CPUE is within 30% of the true value 90% of the time? 
+#Do we also want to consider the spatial structure of the lake? 
+#Given that we know we will set 196 traps, will we sample enough fish to meet the precision criterion? 
+#we need to have some "true" values. 
+#Let's pretend that we know the "true" value of N (true population size, is between 400-600)
+#then, we know our sample = catch = N*q*1/effort
+# we know N, q and effort, so we can estimate sample 
+
+#simpler Monte Carlo Simulation
+#Given 196 traps and an average catch rate of 1.08 Burbot per trap (with some standard deviation)
+#we want to determine if the sample size will satisfy the precision criterion 

@@ -1,0 +1,855 @@
+---
+title: "Birch_Lake mark recapture"
+output: html_document
+date: "2026-01-30"
+---
+
+```{r setup, include=FALSE}
+
+#loading libraries and dependencies
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
+library(tidyverse)
+source("geography.R")
+source("growth.R")
+source("length_dist_funcs.R")
+source("Pop_estimate_funcs.R")
+```
+
+### Summary of Geography 
+
+```{r, echo = FALSE}
+
+birch_seg_plot
+
+```
+Here we can see where theoretical traps occur in terms of the regions. Note: Not all traps were actually set; in the initial visualization all locations are included but moot locations are culled from later anaalysis.
+
+Below are some visualizations of the catch per trap, depth, length distribution etc. For both events
+
+```{r}
+plot_burbot_caught_per_trap
+
+plot_catch_depth_burbot_both_enents
+
+plot_depth_hist_avg_catch
+
+binned_avg_catch_depth_plot
+
+binned_avg_catch_depth_plot_violin
+
+plot_length_by_depth_bin
+
+plot_length_by_depth_bin_violin
+
+
+```
+We can make a few observations here. The first is that Event 2 seems to have fish caught in shallower areas, and fewer fish caught in the deep. Length distribution by depth of burbot seems relatively similar for event 1 and event 2, perhaps with a bit more range in some bins in event 1. Ultimately, fish seemed to move away from the deeper part of the lake in event 2, while they are more common in deep sections in event 1. 
+
+Now, let's take a look at how the fish moved between events. 
+
+
+```{r}
+movement_plot_no_depth
+movement_plot_depth_sizes
+```
+
+Here, the first plot is just fish movement. The second plot uses the same color scheme, but size of point correlates to depth of fish caught (deeper = larger)
+
+Below are some summary-style visualizations of how fish moved. 
+
+```{r}
+distance_plot
+depth_first_vs_second
+change_in_depth
+```
+
+We can see, it looked like fish moved, which we will corroborate later statistically. We can maybe consider a slight trend of shallow fish going deeper and deeper fish going shallower from first to second event, but that is an extrapolation. 
+
+Let's also just go over the number of traps set and fish caught before conducting any analysis 
+
+```{r}
+
+print("trap counts after culling")
+counts_cull_trap
+
+
+print("in event recaps that were removed")
+
+print(birch_data_touse_inevent)
+
+
+
+
+print("total unique fish caught after in event recaps removed")
+
+print(fish_caught_postcull)
+```
+### Growth 
+
+First let's summarize pairwise growth between events, and use a pairwise t-test to detect significant growth.
+
+```{r}
+
+
+
+t_test<- t.test(cap_recap_df_burbot$recap_length, cap_recap_df_burbot$cap_length, paired = TRUE)
+print("t test results")
+print(t_test)
+
+print("p value for evidence of growth between mark and recapture event (as the result of a paired t-test")
+growth_evidence_birch
+
+
+t_test<- t.test(change_fish_over_450$recap_length, change_fish_over_450$cap_length, paired = TRUE)
+print("t test results for fish >=450")
+print(t_test)
+
+print("average growth over all fish: ")
+average_growth_all
+
+
+print("binned average growth")
+binned_average_growth
+
+
+print("average growth fish over 450: ")
+average_growth_over450
+
+```
+
+Now we will summarize the regressions describing growth of these fish. Note: The growth pattern is not explicable by the LVB assumption and should be considered as exploratory, not factual or representative of the system. 
+```{r}
+growth_plot
+```
+
+
+Here, we do have mark length as an explanatory variable but the R squared is extremely low suggesting a poor fit of the linear model to the data. 
+
+```{r}
+summary(model_growth)
+```
+
+Here the regression coefficient -0.04 is very small. For a one unit increase in capture length, we expect a -0.04 unit change in growth. This is very small, and frankly not even within a close proximity to measurement error.
+
+Let's formulate the equation capture_length = m*recapture_length + b. 
+
+```{r}
+
+april_plot
+summary(april_model)
+
+```
+
+This might look like a good fit, but it is deceiving. Let's look at the residuals.
+
+
+```{r}
+resid_plot_april
+```
+Residuals should have equal variance across fit, but we see a very different spread for mid fit sizes. If we look at our regression, we see the model consistently over-predicts capture length for intermediate recapture sizes.That tells me the linear model is not the best fit for this data.I will proceed as normal for now, but these growth dynamics are not solely explicable by the LVB generalization.
+
+### Length Distribution
+
+
+```{r, echo = FALSE}
+mr_data<- read.csv("Birch_lake_data_with_length_correction_no_win_event.csv")%>%
+  select(-c("X"))
+
+mr_data<- as_tibble(mr_data)
+
+
+
+#step 1: K-s tests. 
+
+
+#this filters all the lengths > 450 (not the corrected lengths, the true lengths)
+
+
+#I will use all the lengths for the K-S tests. 
+#we don't care about the traps. Just the fish with lengths.  
+
+mr_data<- mr_data%>%
+  filter(!is.na(fish_tl_mm))
+
+mr_data_nona<- mr_data
+
+mr_data_nona_event1<- mr_data_nona%>%
+  filter(event ==1)
+mr_data_nona_event2<- mr_data_nona%>%
+  filter(event ==2)
+mean_length_event_1<- mean(mr_data_nona_event1$fish_tl_mm)
+sd_length_event_1<- sd(mr_data_nona_event1$fish_tl_mm)
+
+mean_length_event2<- mean(mr_data_nona_event2$fish_tl_mm)
+sd_length_event2<- sd(mr_data_nona_event2$fish_tl_mm)
+
+
+print("mean length event_1: ")
+mean_length_event_1
+
+print("sd length event_1")
+sd_length_event_1
+
+print("mean length event2: ")
+mean_length_event2
+
+print("sd length event2")
+sd_length_event2
+
+print("mean length across events")
+mean(mr_data$fish_tl_mm)
+
+print("range across events")
+print(range(mr_data$fish_tl_mm))
+
+
+#I get a different mean length. Perhaps this is because I didn't correct for the lengths in event 2. 
+
+fish_larger_300<- mr_data%>%
+  filter(fish_tl_mm>=300)
+print("mean length across evnets >300 mm")
+
+mean(fish_larger_300$fish_tl_mm)
+sd(fish_larger_300$fish_tl_mm)
+
+#not sure where he got his mean and standard deviation. 
+
+print("range across events > 300 mm")
+print(range(fish_larger_300$fish_tl_mm))
+
+
+
+
+counts<- mr_data%>%
+  group_by(event, recap)%>%
+  summarise(
+    count = n()
+  )
+
+counts_large_450<- mr_data%>%
+  filter(fish_tl_mm>=450)%>%
+  group_by(event, recap)%>%
+  summarise(
+    count = n()
+  )
+
+print("fish counts by event greater than or equal to  450 mm")
+print(counts_large_450)
+
+counts_large_300<- mr_data%>%
+  filter(fish_tl_mm>=300)%>%
+  group_by(event, recap)%>%
+  summarise(
+    count = n()
+  )
+
+print("fish counts by event greater than or equal to  300 mm")
+print(counts_large_300)
+
+```
+
+
+Above are some summary statistics. Now, I will visualize and compare length distributions using ECDF plots and KS tests.Note: I generally disagree with the correction of length data back to "theoretical" event 1 lengths prior to diagnostic testing, because we are not certain of growth mechanisms and shifting growth backwards disrupts the legitimacy of the true observed distribution. However, here we may see some kind of cohort effect (the distribution at event 1 is not equal to the distribution at event 2.) Therefore, I am unsure about the proper way to proceed-- I have completed K-S tests below using both corrected and uncorrected lengths for n2 fish. Fortunately, both sets of tests follow the same diagnosis, however I am also unsure about the legitimacy of the case-by case diagnostic testing in and of itself. 
+
+Below, m2* is the original length of recaptured fish (true length at event 1)
+
+```{r, echo=FALSE}
+#these are the n2 recaps original lengths. 
+
+#we want to make a temporary dataset that will make visualizing ecdf easier. 
+
+
+#need the n1's, the n2's, the recap l1's and the recap l2's
+
+recaps<- mr_data%>%filter(
+  recap == "Y"
+)
+
+recaps$cap_status<- "recap_event2"
+
+recaps_original_lengths<- mr_data%>%
+  filter(
+    tag_number%in%recaps$tag_number &
+      event == 1
+  )
+
+recaps_original_lengths$cap_status<- "recap_event1"
+
+event1<- mr_data%>%filter(event == 1)%>%
+  mutate(
+    cap_status= "event1"
+  )
+
+event2<- mr_data%>%filter(event == 2)%>%
+  mutate(
+    cap_status="event2"
+  )
+
+mr_data_toplot<- rbind(event1, event2, recaps_original_lengths, recaps)
+
+mr_data_toplot$cap_status<-as.factor(mr_data_toplot$cap_status)
+
+#tentative ecdf plot, need to clean up for publication though. 
+
+
+ecdf_all<-ecdf_plotter(mr_data_toplot, length_variable = fish_tl_mm)
+
+
+print("ecdf for all the lengths no m2 correction ")
+
+ecdf_all
+
+ecdf_300<-ecdf_plotter(mr_data_toplot, 300,  length_variable = fish_tl_mm)
+
+print("ecdf for >300 lengths no m2 correction ")
+
+ecdf_300
+ecdf_450<- ecdf_plotter(mr_data_toplot,450,  length_variable = fish_tl_mm)
+
+print("ecdf for > 450 lengths no m2 correction ")
+ecdf_450
+
+
+ecdf_all<-ecdf_plotter(mr_data_toplot, length_variable = corrected_length)
+
+
+print("ecdf for all the lengths with m2 correction ")
+
+ecdf_all
+
+ecdf_300<-ecdf_plotter(mr_data_toplot, 300,  length_variable = corrected_length)
+
+print("ecdf for >300 lengths with m2 correction ")
+
+ecdf_300
+ecdf_450<- ecdf_plotter(mr_data_toplot,450,  length_variable = corrected_length)
+
+print("ecdf for > 450 lengths with m2 correction ")
+ecdf_450
+
+
+#now to do the ks tests. 
+
+
+ks_all<-ks_test_Birch(mr_data_toplot, fish_tl_mm)
+
+print("ks for all the lengths no m2 correction ")
+ks_all
+ks_300<-ks_test_Birch(mr_data_toplot%>%filter(fish_tl_mm>300), fish_tl_mm)
+print("ks for >300 lengths no m2 correction ")
+ks_300
+ks_450<-ks_test_Birch(mr_data_toplot%>%filter(fish_tl_mm>450), fish_tl_mm)
+print("ks for >450 lengths no m2 correction ")
+ks_450
+
+
+#now I will run the k-s tests with the length-corrected data. 
+#I don't necessarily think this is a useful test, though. 
+ks_all_corr<-ks_test_Birch(mr_data_toplot, corrected_length)
+
+print("ks for all the lengths with m2 correction ")
+
+ks_all_corr
+ks_300_corr<-ks_test_Birch(mr_data_toplot%>%filter(corrected_length>300), corrected_length)
+print("ks for >300 lengths with m2 correction ")
+
+ks_300_corr
+ks_450_corr<-ks_test_Birch(mr_data_toplot%>%filter(corrected_length>450), corrected_length)
+print("ks for >450 lengths no m2 correction ")
+
+ks_450_corr
+
+```
+
+By these findings, we would technically proceed by case II, using event 1 lengths for length distribution and pooled data for the mark recap. Below, I will perform a more detailed analysis of length distribution to articulate distribution differences between events and explore a possible cohort effect.
+
+
+First let's look at a smoothed continuous distribution of both events. As we can see, it looks like the ssampled distribution shifts towards a larger mean in event 2. Notice the prompt bimodality of this distribution, which suggests more complex growth/ cohort dynamics.
+
+```{r, echo = FALSE}
+
+
+
+cont_birch<-plot_length_dist_continuous(mr_data, fish_tl_mm)
+
+
+print("events pooled")
+cont_birch$full_distribution
+
+
+print("events distinct")
+cont_birch$full_distribution_byevent
+
+```
+
+Now, let's do some binning and look at the statistics.
+```{r, echo = FALSE}
+#here, event 1 = true and event 2 = true (both events)
+bins_both_events<-assign_bins(mr_data, fish_tl_mm, minlength = 300)
+
+
+#stats for both events pooled 
+
+binned_data_stats_both_events<-binned_length_statistics(bins_both_events)
+
+
+binned_plot_both_events<-plot_length_binnedWithError(binned_data_stats_both_events)
+
+
+print("What the distribution would look like if we used both event 1 and 2 together with no length minimum")
+
+binned_plot_both_events
+
+#now we will make a plot for separate events 
+
+bins_event1<-assign_bins(mr_data, fish_tl_mm, minlength = 300)
+#stats for both events pooled 
+
+binned_data_stats_event1<-binned_length_statistics(bins_both_events, event1 = TRUE, event2 = FALSE)
+
+
+binned_plot_event1<-plot_length_binnedWithError(binned_data_stats_event1)
+
+print("What the distribution would look like if we used only event 1 with no length minimum")
+
+binned_plot_event1
+#for event 2
+
+binned_data_stats_event2<-binned_length_statistics(bins_both_events, event1 = FALSE, event2 = TRUE)
+
+
+binned_plot_event2<-plot_length_binnedWithError(binned_data_stats_event2)
+
+
+print("What the distribution would look like if we used only event 2 with no length minimum")
+binned_plot_event2
+
+#it seems like there is some sort of young fish cohort effect.
+
+
+#let's try this same thing with big fish only. 
+
+print("What the distribution would look like if we used both event 1 and 2 together with 450 mm length minimum")
+
+
+bins_both_events<-assign_bins(mr_data, fish_tl_mm, minlength = 450)
+
+
+#stats for both events pooled 
+
+binned_data_stats_both_events<-binned_length_statistics(bins_both_events)
+
+
+binned_plot_both_events<-plot_length_binnedWithError(binned_data_stats_both_events)
+
+binned_plot_both_events
+
+#now we will make a plot for separate events 
+
+
+binned_data_stats_event1<-binned_length_statistics(bins_both_events, event1 = TRUE, event2 = FALSE)
+
+
+binned_plot_event1<-plot_length_binnedWithError(binned_data_stats_event1)
+
+print("What the distribution would look like if we used only event 1 with 450 mm length minimum")
+
+binned_plot_event1
+#for event 2
+
+binned_data_stats_event2<-binned_length_statistics(bins_both_events, event1 = FALSE, event2 = TRUE)
+
+
+binned_plot_event2<-plot_length_binnedWithError(binned_data_stats_event2)
+
+print("What the distribution would look like if we used only event 2 with 450 mm length minimum")
+binned_plot_event2
+#now we will do the same thing but with CORRECTE LENGTHS for fish with corrected length > 450 
+
+
+bins_both_events<-assign_bins(mr_data, corrected_length, minlength = 450)
+
+
+#stats for both events pooled 
+
+binned_data_stats_both_events<-binned_length_statistics(bins_both_events)
+
+
+binned_plot_both_events<-plot_length_binnedWithError(binned_data_stats_both_events)
+
+print("What the distribution would look like if we used both event 1 and corrected length 2 together with 450 mm length minimum")
+
+binned_plot_both_events
+#now we will make a plot for separate events 
+
+
+binned_data_stats_event1<-binned_length_statistics(bins_both_events, event1 = TRUE, event2 = FALSE)
+
+
+binned_plot_event1<-plot_length_binnedWithError(binned_data_stats_event1)
+
+#for event 2
+
+binned_data_stats_event2<-binned_length_statistics(bins_both_events, event1 = FALSE, event2 = TRUE)
+
+
+binned_plot_event2<-plot_length_binnedWithError(binned_data_stats_event2)
+
+print("What the distribution would look like if we used only corrected event 2 with 450 mm length minimum")
+
+binned_plot_event2
+```
+
+
+So we have a good idea of what the length distribution looks like at different times. To answer the question: "what was the dist of fish susceptible to trap capture in april" I would use raw event 1 lengths. However, we know that catch distribution in event 2 was much different than event 1, and we know that the length distributions of event 1 and 2 were significantly different, so there are probably some interesting dynamics at play. 
+
+
+### Tests for Petersen Consistency
+
+
+```{r}
+
+
+recap_tags<- cap_recap_df_burbot$tag_number
+
+
+mat_pet<- petersen_matrix_tyerscode(mr_data, recapped_fish = recap_tags)
+
+print("Matrix used for Tyers petersen consistency tests")
+#here we have the counts. Hopefully this is right. 
+
+
+#were there 299 n2/s? I thought there were 300. 
+
+counts_by_strata<- mr_data%>% group_by(region)%>% 
+  filter(!(event == 1 & is.na(tag_number)))%>%
+  summarize(n1 = sum(event == 1), n2 = sum(event == 2), m2 = sum(recap == "Y"))%>%
+  drop_na()
+
+
+colSums(counts_by_strata)
+print("counts by strata:")
+counts_by_strata
+
+consistencytest(counts_by_strata$n1, counts_by_strata$n2, stratamat = mat_pet)
+```
+
+Here, we fail to reject all nulls, meaning we do not have to regionally stratify.
+
+
+### Population Estimations
+
+Here we have estimates without n2 growth correction
+```{r}
+
+population_size<- pop_calc(Chapman_funcs, mr_data, length_var = fish_tl_mm, length_min = 300)
+
+print("pop size >=300")
+population_size
+
+
+population_size_450<- pop_calc(Chapman_funcs, mr_data, length_var = fish_tl_mm, length_min = 450)
+
+print("pop size >=450")
+
+population_size_450
+
+```
+
+And here it is with growth correction
+
+```{r}
+
+population_size<- pop_calc(Chapman_funcs, mr_data, length_var = corrected_length, length_min = 300)
+
+
+view(mr_data%>%filter(recap == "Y"))
+
+print("pop size >=300")
+population_size
+
+
+population_size_450<- pop_calc(Chapman_funcs, mr_data, length_var = corrected_length, length_min = 450)
+
+print("pop size >=450")
+
+population_size_450
+
+```
+
+
+### CPUE
+
+I left most of this code in the rmd here as it is more novel and can be reviewed easily
+
+
+First I define two functions used for the CPUE simulations.
+```{r}
+#Resampling and preserving unsampled area structure.
+row_resamp <- function(row) {
+ non_na_values <- row[!is.na(row)]
+ resampled_values <- sample(non_na_values, length(non_na_values), replace = TRUE)
+ row[!is.na(row)] <- resampled_values
+ return(row)
+}
+#Run "one iteration" of the bootstrap
+cpue_iteration<- function(mat,CPUE_bar) {
+ resampled_rows<-mat[sample(1:nrow(mat), size = nrow(mat), replace = TRUE),]
+ resampled_mat<- t(apply(resampled_rows,1, row_resamp))
+ n= nrow(resampled_mat) #terms in the Wu correction
+ n_norm<- sqrt(n/(n-1))
+ mi= rowSums(!is.na(resampled_mat))
+ mi_norm<-sqrt(mi/(mi-1))
+ mibar = mean(mi)
+ wi= mi/mibar
+ ci = rowSums(resampled_mat, na.rm = TRUE)
+ cibar = ci/mi #average catch per set in a transect.
+ resampled_mat_sweep <- sweep(resampled_mat, 1, cibar, "-")
+ mat_new = CPUE_bar+n_norm*(wi*cibar-CPUE_bar)+wi*mi_norm*resampled_mat_sweep
+ CPUE_new = 1/n * (sum(mat_new / mi, na.rm = TRUE))
+ CPUE_output<- CPUE_new
+}
+#Run the simulation, retrieve statistics
+cpue_boot<- function(mat) {
+ mi_true = rowSums(!is.na(mat))
+ mbar_true = mean(mi_true)
+ total_catch = sum(mat, na.rm = TRUE)
+ CPUE_bar = (1/nrow(mat))*sum(rowSums(mat, na.rm = TRUE)/mbar_true)
+ CPUE_output<- map_dbl(1:1000, ~cpue_iteration(mat, CPUE_bar))
+ hist(CPUE_output, breaks = 20)
+ mean<- mean(CPUE_output)
+ sd<- sd(CPUE_output)
+ return(list("mean" = mean, "sd" = sd))
+}
+
+
+```
+
+
+Next I manipulate the geographic data so it is matricized and compute CPUE for each daily catch.
+```{r}
+#load geographic data
+birch_shape <- st_read("birch_gis")
+birch_s2<- st_as_s2(birch_shape)
+birch_s2<- st_as_sf(birch_s2)
+conv_nor <- concaveman(birch_s2)
+## need to separate these into different events? I think maybe? 
+data_full<- read.csv("birch_with_geog_regions.csv")%>%
+  select(-c(X))
+
+#data_full<-data_full%>%
+#  mutate(
+#    soak_time= pull_time-set_time
+#  )
+
+
+#drop traps that were never set/pulled. we do NOT want to count these traps at all. 
+data_full<- data_full%>%
+  drop_na(set_date,pull_date)%>%
+  filter(cull_trap == "N")
+
+date_combos<- data_full%>%
+  group_by(set_date, pull_date)%>%
+  count()
+
+data_full_event1<- data_full%>%
+  filter(event ==1 )
+
+data_full_event2<- data_full%>%
+  filter(event ==2)
+#need to somehow compute the CPUE 
+
+
+transect_numbers<- length(unique(data_full_event1$transect_number))
+
+transect_sizes<-data_full_event1%>%
+  group_by(transect_number)%>%
+  summarise(
+    transect_sizes= n_distinct(trap_number)
+  )
+
+
+
+
+max_transect_size<- max(transect_sizes$transect_sizes)
+#need to get this in matrix form. 
+
+#need to get the cpue for each individual date pull combo
+
+#maybe create a visual for every combo
+
+for(q in 1: length(date_combos$set_date))
+{
+  print(q)
+  
+  geog_temp<- data_full%>%
+  filter(set_date == date_combos$set_date[q])%>%
+  filter(pull_date == date_combos$pull_date[q])
+  
+  g<-ggplot(conv_nor)+
+    geom_sf(fill = "skyblue")+
+    geom_sf(data = st_as_sf(geog_temp, coords = c("longitude", "latitude"), crs = "WGS84"), aes(size = fish_trap))
+  
+  show(g)
+  
+  matricized_fish<- geog_temp%>%
+  group_by(transect_number, trap_number)%>%
+  summarise(
+    count = sum(x0_catch!="Y")
+  )%>%
+  mutate(across(everything(), ~replace_na(.x,0)))
+  print(matricized_fish)
+  transect_matrix<- matrix(NA, nrow = transect_numbers, ncol = max_transect_size)
+
+
+#need to assign buoy numbers. 
+print(q)
+stop = FALSE
+i = 1
+for(j in 1:transect_numbers)
+{
+  m = matricized_fish$transect_number[i]
+  k = m
+  p = 1
+  while(k == m)
+  {
+    transect_matrix[k,p] = matricized_fish$count[i]
+    #print(transect_matrix[k,p])
+    k = matricized_fish$transect_number[i]
+    p = p+1
+    i = i +1
+    if(i > length(matricized_fish$count))
+    {
+      stop = TRUE
+      break
+    }
+
+  }
+  if(stop){break}
+}
+print("date combo")
+print(as.data.frame(date_combos[q,]))
+
+print(cpue_boot(transect_matrix))
+
+}
+
+
+transect_matrix<- matrix(NA, nrow = transect_numbers, ncol = max_transect_size)
+
+#need to assign buoy numbers. 
+```
+
+For CPUE conglomerate case:
+
+```{r}
+
+
+#helper function
+#apparently tis works but I have no idea why or how. 
+pop_mat<- function(matricized_fish, transect_matrix, t_numbers)
+{
+  
+stop = FALSE
+i = 1
+for(j in 1:t_numbers)
+{
+  m = matricized_fish$transect_number[i]
+  k = m
+  p = 1
+  while(k == m)
+  {
+    transect_matrix[k,p] = matricized_fish$count[i]
+    #print(transect_matrix_e1[k,p])
+    k = matricized_fish$transect_number[i]
+    p = p+1
+    i = i +1
+    if(i > length(matricized_fish$count))
+    {
+      stop = TRUE
+      break
+    }
+
+  }
+  if(stop){break}
+}
+return(transect_matrix)
+}
+
+
+```
+
+Event 1
+```{r}
+
+#For fish larger than 300 mm
+
+matricized_fish_e1_large300<- data_full_event1%>%
+  group_by(transect_number, trap_number)%>%
+  summarise(
+    count = sum(x0_catch!="Y" & fish_tl_mm >=300 & fish_tl_mm <450)
+  )%>%
+  mutate(across(everything(), ~replace_na(.x,0)))
+
+matricized_fish_e1_large450<- data_full_event1%>%
+  group_by(transect_number, trap_number)%>%
+  summarise(
+    count = sum(x0_catch!="Y" & fish_tl_mm >=450)
+  )%>%
+  mutate(across(everything(), ~replace_na(.x,0)))
+
+matricized_fish_e2_large300<- data_full_event2%>%
+  group_by(transect_number, trap_number)%>%
+  summarise(
+    count = sum(x0_catch!="Y" & fish_tl_mm >=300 & fish_tl_mm < 450)
+  )%>%
+  mutate(across(everything(), ~replace_na(.x,0)))
+
+matricized_fish_e2_large450<- data_full_event2%>%
+  group_by(transect_number, trap_number)%>%
+  summarise(
+    count = sum(x0_catch!="Y" & fish_tl_mm >=450)
+  )%>%
+  mutate(across(everything(), ~replace_na(.x,0)))
+
+
+transect_matrix_e1_large300<- matrix(NA, nrow = transect_numbers, ncol = max_transect_size)
+transect_matrix_e1_large450<- matrix(NA, nrow = transect_numbers, ncol = max_transect_size)
+transect_matrix_e2_large300<- matrix(NA, nrow = transect_numbers, ncol = max_transect_size)
+transect_matrix_e2_large450<- matrix(NA, nrow = transect_numbers, ncol = max_transect_size)
+
+
+e1_large300<-pop_mat(matricized_fish_e1_large300, transect_matrix_e1_large300, transect_numbers)
+e1_large450<-pop_mat(matricized_fish_e1_large450, transect_matrix_e1_large450, transect_numbers)
+e2_large300<-pop_mat(matricized_fish_e2_large300, transect_matrix_e2_large300, transect_numbers)
+e2_large450<-pop_mat(matricized_fish_e2_large450, transect_matrix_e2_large450, transect_numbers)
+
+
+
+e1_large300_cpue<-cpue_boot(e1_large300)
+e1_large450_cpue<- cpue_boot(e1_large450)
+e2_large300_cpue<-cpue_boot(e2_large300)
+e2_large450_cpue<- cpue_boot(e2_large450)
+
+cpue_table <- tibble::tibble(
+  event        = c("e1", "e1", "e2", "e2"),
+  length_class = c("300–450", "≥450", "300–450", "≥450"),
+  mean_cpue    = c(
+    e1_large300_cpue$mean,
+    e1_large450_cpue$mean,
+    e2_large300_cpue$mean,
+    e2_large450_cpue$mean
+  ),
+  sd_cpue      = c(
+    e1_large300_cpue$sd,
+    e1_large450_cpue$sd,
+    e2_large300_cpue$sd,
+    e2_large450_cpue$sd
+  )
+)
+
+cpue_table
+
+
+```
