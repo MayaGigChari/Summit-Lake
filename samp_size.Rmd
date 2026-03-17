@@ -1,0 +1,170 @@
+---
+title: "Summit_cpue_samp_size"
+output: html_document
+date: "2026-03-16"
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+  warning = FALSE,
+  message = FALSE
+)
+library(readxl)
+library(knitr)
+library(tidyverse)
+library(janitor)
+library(nleqslv)
+source("cpue.R")
+```
+
+
+```{r}
+# Install nleqslv if you don't have it
+# install.packages("nleqslv")
+# Parameters
+n1 <- 190              
+mean_cpue <- 0.1222710       
+var_mean_cpue <- 0.0383483^2  # example variance, replace with your var_cpue
+z_alpha <- 1.44        
+z_beta <- 0.7          
+zfunc <- z_alpha + z_beta 
+
+
+compute_n2_nleqslv <- function(d) {
+  f_n2_eq <- function(n2) {
+    denom <- var_mean_cpue + (n1 / n2) * (var_mean_cpue / mean_cpue^2) * (mean_cpue + d)^2
+    d^2 / denom - zfunc^2
+  }
+  
+  solution <- nleqslv(x = 100, fn = f_n2_eq, control = list(allowSingular = TRUE))
+  
+  #check for termination, skip if terminated
+  if (solution$termcd != 1)
+    {
+      return(NA)
+    } 
+      else {
+      return(solution$x)
+  }
+}
+
+
+```
+
+As we can see above, the parameters derived from the CPUE bootstrapping of 1990 are: sample size = 190, mean cpue= 0.12, var in mean cpue = 0.0014. Our starting values of alpha and beta correspond to a = 0.15 and b = 0.7.
+
+I will proceed with this estimate as a standard of 0.3 units of change as that was the reference in the paper. 
+
+
+Let's start with this very low confidence estimtae:
+
+
+```{r, echo = FALSE}
+
+print("sample size for a change of 0.3 units cpue")
+print(compute_n2_nleqslv(0.3))
+
+
+d_values <- seq(0.15, 0.5, by = 0.01)
+
+# Compute required n2 for each d
+n2_values <- sapply(d_values, compute_n2_nleqslv)
+
+# Filter valid results
+valid_idx <- !is.na(n2_values)
+d_values_valid <- d_values[valid_idx]
+n2_values_valid <- n2_values[valid_idx]
+
+# Plot
+plot(d_values_valid, n2_values_valid, type = "b", pch = 19, col = "darkgreen",
+     xlab = "change (d, units cpue)", ylab = "Required n2",
+     main = "Required Sample Size n2 for alpha = 0.15, beta = 0.7",
+     ylim = c(min(n2_values_valid), max(n2_values_valid)))
+
+# Vector of effect sizes
+
+```
+
+As we increase our accuracy and precision, we will see an increase in sample size requirements. 
+
+```{r, echo = FALSE}
+
+
+z_alpha <- qnorm(1-0.15/2)        
+z_beta <- 0.8
+zfunc <- z_alpha + z_beta  
+print("sample size for a change of 0.3 units cpue")
+print(compute_n2_nleqslv(0.3))
+n2_values <- sapply(d_values, compute_n2_nleqslv)
+# Filter valid results
+valid_idx <- !is.na(n2_values)
+d_values_valid <- d_values[valid_idx]
+n2_values_valid <- n2_values[valid_idx]
+
+# Plot
+
+plot(d_values_valid, n2_values_valid, type = "b", pch = 19, col = "darkgreen",
+     xlab = "change (d, units cpue)", ylab = "Required n2",
+     main = "Required Sample Size n2 for alpha = 0.15, beta = 0.8",
+     ylim = c(min(n2_values_valid), max(n2_values_valid)))
+
+
+z_alpha <- qnorm(1-0.1/2)        
+z_beta <- 0.8
+zfunc <- z_alpha + z_beta  
+print("sample size for a change of 0.3 units cpue")
+print(compute_n2_nleqslv(0.3))
+n2_values <- sapply(d_values, compute_n2_nleqslv)
+# Filter valid results
+valid_idx <- !is.na(n2_values)
+d_values_valid <- d_values[valid_idx]
+n2_values_valid <- n2_values[valid_idx]
+
+# Plot
+
+plot(d_values_valid, n2_values_valid, type = "b", pch = 19, col = "darkgreen",
+     xlab = "change (d, units cpue)", ylab = "Required n2",
+     main = "Required Sample Size n2 for alpha = 0.1, beta = 0.8",
+     ylim = c(min(n2_values_valid), max(n2_values_valid)))
+
+
+
+
+z_alpha <- qnorm(1-0.1/2)        
+z_beta <- 0.85
+zfunc <- z_alpha + z_beta  
+print("sample size for a change of 0.3 units cpue")
+print(compute_n2_nleqslv(0.3))
+n2_values <- sapply(d_values, compute_n2_nleqslv)
+# Filter valid results
+valid_idx <- !is.na(n2_values)
+d_values_valid <- d_values[valid_idx]
+n2_values_valid <- n2_values[valid_idx]
+
+# Plot
+
+plot(d_values_valid, n2_values_valid, type = "b", pch = 19, col = "darkgreen",
+     xlab = "change (d, units cpue)", ylab = "Required n2",
+     main = "Required Sample Size n2 for alpha = 0.1, beta = 0.85",
+     ylim = c(min(n2_values_valid), max(n2_values_valid)))
+
+
+z_alpha <- qnorm(1-0.05/2)        
+z_beta <- 0.85
+zfunc <- z_alpha + z_beta  
+print("sample size for a change of 0.3 units cpue")
+print(compute_n2_nleqslv(0.3))
+n2_values <- sapply(d_values, compute_n2_nleqslv)
+# Filter valid results
+valid_idx <- !is.na(n2_values)
+d_values_valid <- d_values[valid_idx]
+n2_values_valid <- n2_values[valid_idx]
+
+# Plot
+
+plot(d_values_valid, n2_values_valid, type = "b", pch = 19, col = "darkgreen",
+     xlab = "change (d, units cpue)", ylab = "Required n2",
+     main = "Required Sample Size n2 for alpha = 0.05, beta = 0.85",
+     ylim = c(min(n2_values_valid), max(n2_values_valid)))
+
+```

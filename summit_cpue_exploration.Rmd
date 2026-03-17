@@ -19,7 +19,7 @@ source("cpue.R")
 
 ## Quick look at 1990 and 1991 hoop trap data with geog info for Summit Lake
 
-```{r}
+```{r, echo = FALSE}
 length_dist<- read_excel("lengths_combined.xlsx")
 
 # abundance estimates are already very bad. 
@@ -59,7 +59,7 @@ ggplot(df_long_recent, aes(x = value, fill = factor(year))) +
 ### now we will load the 1990 and 1991 datasets and look at the CPUE by depth
 
 
-```{r}
+```{r, echo = FALSE}
 
 data_1990<-read_excel("1990_dat.xlsx")
 
@@ -72,6 +72,9 @@ data_1990<- clean_names(data_1990)
 data_1990<- data_1990
 
 #check to see the actual number of unique traps set above 15 m
+
+print("number of traps")
+
 data_1990%>%
   filter(depth <= 15*3.28084)%>%
   group_by(trans, trap_number)%>%
@@ -115,14 +118,15 @@ cpue_1990_small15<- cpue_boot(mat_1990)
 
 cpue_raw_1990_small15<- cpue_boot(mat_1990, raw_data_only = TRUE)
 
-
+print("cpue for 1990, fish caught < 15 m")
 cpue_1990_small15
 
 ```
 ### Let's see what it looks like if we kept in ALL the depths under 90 ft
 
-```{r}
+```{r, echo = FALSE}
 
+print("number of traps")
 data_1990%>%
   group_by(trans, trap_number)%>%
   count()%>%
@@ -167,7 +171,7 @@ cpue_1990_alldata<- cpue_boot(mat_1990)
 
 cpue_raw_1990_alldata<- cpue_boot(mat_1990, raw_data_only = TRUE)
 
-
+print("cpue for 1990, all traps in all depths")
 cpue_1990_alldata
 
 
@@ -176,9 +180,10 @@ cpue_1990_alldata
 
 ### Now let's try it for only fish caught in > 15 m
 
-```{r}
+```{r, echo = FALSE}
 
 #now let's try for fish > 15 m only
+print("number of traps")
 
 data_1990%>%
   filter(depth >= 15*3.28084)%>%
@@ -222,7 +227,7 @@ cpue_1990_large15<- cpue_boot(mat_1990)
 
 cpue_raw_1990_large15<- cpue_boot(mat_1990, raw_data_only = TRUE)
 
-
+print("cpue for 1990, fish caught > 15 m")
 cpue_1990_large15
 
 ```
@@ -231,7 +236,7 @@ cpue_1990_large15
 ### Let's look at 1991
 
 
-```{r}
+```{r, echo = FALSE}
 #################Let's do the same thing for 1991
 
 data_1991<-read_excel("1991_dat.xlsx")
@@ -243,6 +248,7 @@ data_1991<-janitor::remove_empty(data_1991)
 data_1991<- clean_names(data_1991)
 
 data_1991 
+print("number of traps")
 
 data_1991%>%
   filter(depth <= 15*3.28084)%>%
@@ -288,7 +294,7 @@ cpue_1991_small15<- cpue_boot(mat_1991)
 
 cpue_raw_1991_small15<- cpue_boot(mat_1991, raw_data_only = TRUE)
 
-
+print("cpue 1991, fish caught < 15 m")
 cpue_1991_small15
 
 
@@ -296,9 +302,10 @@ cpue_1991_small15
 
 
 ### Let's try it with all data not stratifying by depth
-```{r}
+```{r, echo = FALSE}
 
 
+print("number of traps")
 
 data_1991%>%
   group_by(trans, trap_number)%>%
@@ -341,6 +348,7 @@ cpue_1991_alldata<- cpue_boot(mat_1991)
 
 cpue_raw_1991_alldata<- cpue_boot(mat_1991, raw_data_only = TRUE)
 
+print("cpue for 1991, fish caught in all depths")
 cpue_1991_alldata
 
 
@@ -353,7 +361,8 @@ cpue_1991_alldata
 
 ### now let's try for fish > 15 m only
 
-```{r}
+```{r, echo = FALSE}
+print("number of traps")
 
 data_1991%>%
   filter(depth >= 15*3.28084)%>%
@@ -398,6 +407,8 @@ cpue_1991_large15<- cpue_boot(mat_1991)
 
 cpue_raw_1991_large15<- cpue_boot(mat_1991, raw_data_only = TRUE)
 
+
+print("cpue for 1991, fish caught > 15 m")
 cpue_1991_large15
 
 ```
@@ -406,7 +417,7 @@ cpue_1991_large15
 ### CPUE for shallow depths and deep depths are kind of similar in 1991 and 1990. CPUE for deep depths are also kind of similar in 1991 and 1990. However, CPUE of shallow depths and deep depths, in both years, are not similar, and while I haven't done statistics, I also am unsure if CPUE for shallow depths is similar to total CPUE in both years. All of these statements depend on what our criterion of "similar" is. 
 
 Now let's make a table
-```{r}
+```{r, echo = FALSE}
 
 cpue_1991_alldata
 cpue_1990_alldata
@@ -431,9 +442,12 @@ df_deep <- data.frame(
   row.names = c("1990", "1991")
 )
 
-
+print("cpue for all data")
 kable(df_all)
+print("cpue for shallow")
 kable(df_shallow)
+
+print("cpue for deep ")
 kable(df_deep)
 
 
@@ -456,14 +470,11 @@ cpue_output_df<- cpue_output_df %>%
     values_to = "value"
   )
 
-cpue_output_df
+#cpue_output_df
 
-anova<-aov(value~strata, data = cpue_output_df)
-TukeyHSD(anova)
-summary(anova)
+#anova<-aov(value~strata, data = cpue_output_df)
+#TukeyHSD(anova)
+#summary(anova)
 ```
 
 
-Questions: 
-
-1) Is it fair to assume that the distribution of fish is the same in shallow and deeper parts of the lake? Is it fair to assume that shallow CPUE is a proxy for fish availability 
