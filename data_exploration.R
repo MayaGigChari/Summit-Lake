@@ -11,9 +11,9 @@ library(readstata13)
 install.packages("foreign")
 library(foreign)
 
-data_hist<- read.dta("I0140l-6.dta")
 
-# fishing effort peaked in the 1990's 
+#####THIS IS A SCRIPT for exploring previous summit data. 
+
 
 length_dist<- read_excel("lengths_combined.xlsx")
 

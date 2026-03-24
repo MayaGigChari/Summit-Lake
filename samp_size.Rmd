@@ -25,12 +25,17 @@ source("cpue.R")
 n1 <- 190              
 mean_cpue <- 0.1222710       
 var_mean_cpue <- 0.0383483^2  # example variance, replace with your var_cpue
-z_alpha <- 1.44        
-z_beta <- 0.7          
-zfunc <- z_alpha + z_beta 
+alpha = 0.15
+beta = 0.3
+z_alpha <- qnorm(1-alpha/2)       
+z_beta <- qnorm(beta)          
+zfunc <- z_alpha - z_beta 
 
 
-compute_n2_nleqslv <- function(d) {
+compute_n2_nleqslv <- function(d, zfunc) 
+{
+  
+  zfunc = zfunc
   f_n2_eq <- function(n2) {
     denom <- var_mean_cpue + (n1 / n2) * (var_mean_cpue / mean_cpue^2) * (mean_cpue + d)^2
     d^2 / denom - zfunc^2
@@ -49,6 +54,7 @@ compute_n2_nleqslv <- function(d) {
 }
 
 
+
 ```
 
 As we can see above, the parameters derived from the CPUE bootstrapping of 1990 are: sample size = 190, mean cpue= 0.12, var in mean cpue = 0.0014. Our starting values of alpha and beta correspond to a = 0.15 and b = 0.7.
@@ -61,27 +67,30 @@ Let's start with this very low confidence estimtae:
 
 ```{r, echo = FALSE}
 
-print("sample size for a change of 0.3 units cpue")
-print(compute_n2_nleqslv(0.3))
+print("sample size for a change of 0.3 units cpue with alpha = 0.15 and power = 0.7")
+print(compute_n2_nleqslv(0.3, zfunc = zfunc))
 
 
 d_values <- seq(0.15, 0.5, by = 0.01)
 
 # Compute required n2 for each d
-n2_values <- sapply(d_values, compute_n2_nleqslv)
+n2_values <- sapply(d_values, compute_n2_nleqslv, zfunc = zfunc)
 
 # Filter valid results
 valid_idx <- !is.na(n2_values)
 d_values_valid <- d_values[valid_idx]
 n2_values_valid <- n2_values[valid_idx]
 
-# Plot
-plot(d_values_valid, n2_values_valid, type = "b", pch = 19, col = "darkgreen",
-     xlab = "change (d, units cpue)", ylab = "Required n2",
-     main = "Required Sample Size n2 for alpha = 0.15, beta = 0.7",
-     ylim = c(min(n2_values_valid), max(n2_values_valid)))
 
-# Vector of effect sizes
+df <- data.frame(d = d_values_valid, n2 = n2_values_valid)
+
+# ggplot
+ggplot(df, aes(x = d, y = n2)) +
+  geom_point(color = "darkgreen") +
+  geom_line(color = "darkgreen") +
+  labs(x = "Absolute Difference in CPUE", y = "Number of Traps", title = "alpha = 0.15, power = 0.7") +
+  theme_minimal()
+
 
 ```
 
@@ -90,12 +99,14 @@ As we increase our accuracy and precision, we will see an increase in sample siz
 ```{r, echo = FALSE}
 
 
-z_alpha <- qnorm(1-0.15/2)        
-z_beta <- 0.8
-zfunc <- z_alpha + z_beta  
-print("sample size for a change of 0.3 units cpue")
-print(compute_n2_nleqslv(0.3))
-n2_values <- sapply(d_values, compute_n2_nleqslv)
+alpha = 0.15
+beta = 0.2
+z_alpha <- qnorm(1-alpha/2)       
+z_beta <- qnorm(beta)  
+zfunc <- z_alpha- z_beta  
+print("sample size for a change of 0.3 units cpue and power of 0.8")
+print(compute_n2_nleqslv(0.3, zfunc = zfunc))
+n2_values <- sapply(d_values, compute_n2_nleqslv,zfunc = zfunc)
 # Filter valid results
 valid_idx <- !is.na(n2_values)
 d_values_valid <- d_values[valid_idx]
@@ -103,18 +114,50 @@ n2_values_valid <- n2_values[valid_idx]
 
 # Plot
 
-plot(d_values_valid, n2_values_valid, type = "b", pch = 19, col = "darkgreen",
-     xlab = "change (d, units cpue)", ylab = "Required n2",
-     main = "Required Sample Size n2 for alpha = 0.15, beta = 0.8",
-     ylim = c(min(n2_values_valid), max(n2_values_valid)))
+
+df <- data.frame(d = d_values_valid, n2 = n2_values_valid)
+
+# ggplot
+ggplot(df, aes(x = d, y = n2)) +
+  geom_point(color = "darkgreen") +
+  geom_line(color = "darkgreen") +
+  labs(x = "Absolute Difference in CPUE", y = "Number of Traps", title = "alpha = 0.15, power = 0.8") +
+  theme_minimal()
 
 
-z_alpha <- qnorm(1-0.1/2)        
-z_beta <- 0.8
-zfunc <- z_alpha + z_beta  
-print("sample size for a change of 0.3 units cpue")
-print(compute_n2_nleqslv(0.3))
-n2_values <- sapply(d_values, compute_n2_nleqslv)
+alpha = 0.15
+beta = 0.15
+z_alpha <- qnorm(1-alpha/2)       
+z_beta <- qnorm(beta)  
+zfunc <- z_alpha- z_beta  
+print("sample size for a change of 0.3 units cpue and power of 0.85")
+print(compute_n2_nleqslv(0.3, zfunc = zfunc))
+n2_values <- sapply(d_values, compute_n2_nleqslv,zfunc = zfunc)
+# Filter valid results
+valid_idx <- !is.na(n2_values)
+d_values_valid <- d_values[valid_idx]
+n2_values_valid <- n2_values[valid_idx]
+
+
+df <- data.frame(d = d_values_valid, n2 = n2_values_valid)
+
+# ggplot
+p <- ggplot(df, aes(x = d, y = n2)) +
+  geom_point(color = "darkgreen") +
+  geom_line(color = "darkgreen") +
+  labs(x = "Absolute Difference in CPUE", y = "Number of Traps",  title = "alpha = 0.15, power = 0.85") +
+  theme_minimal()
+
+# Save
+
+alpha = 0.1
+beta = 0.2
+z_alpha <- qnorm(1-alpha/2)       
+z_beta <- qnorm(beta)  
+zfunc <- z_alpha- z_beta  
+print("sample size for a change of 0.3 units cpue and power of 0.8")
+print(compute_n2_nleqslv(0.2, zfunc = zfunc))
+n2_values <- sapply(d_values, compute_n2_nleqslv,zfunc = zfunc)
 # Filter valid results
 valid_idx <- !is.na(n2_values)
 d_values_valid <- d_values[valid_idx]
@@ -122,49 +165,74 @@ n2_values_valid <- n2_values[valid_idx]
 
 # Plot
 
-plot(d_values_valid, n2_values_valid, type = "b", pch = 19, col = "darkgreen",
-     xlab = "change (d, units cpue)", ylab = "Required n2",
-     main = "Required Sample Size n2 for alpha = 0.1, beta = 0.8",
-     ylim = c(min(n2_values_valid), max(n2_values_valid)))
+df <- data.frame(d = d_values_valid, n2 = n2_values_valid)
+
+# ggplot
+p <- ggplot(df, aes(x = d, y = n2)) +
+  geom_point(color = "darkgreen") +
+  geom_line(color = "darkgreen") +
+  labs(x = "Absolute Difference in CPUE", y = "Number of Traps",  title = "alpha = 0.1, power = 0.8") +
+  theme_minimal()
+
+ggsave("PLOT_TO_USE.png", dpi = 300)
+###THIS IS THE ONE WE SHOULD SAVE!
+# Save
+
+
+```
 
 
 
-
-z_alpha <- qnorm(1-0.1/2)        
-z_beta <- 0.85
-zfunc <- z_alpha + z_beta  
-print("sample size for a change of 0.3 units cpue")
-print(compute_n2_nleqslv(0.3))
-n2_values <- sapply(d_values, compute_n2_nleqslv)
-# Filter valid results
-valid_idx <- !is.na(n2_values)
-d_values_valid <- d_values[valid_idx]
-n2_values_valid <- n2_values[valid_idx]
-
-# Plot
-
-plot(d_values_valid, n2_values_valid, type = "b", pch = 19, col = "darkgreen",
-     xlab = "change (d, units cpue)", ylab = "Required n2",
-     main = "Required Sample Size n2 for alpha = 0.1, beta = 0.85",
-     ylim = c(min(n2_values_valid), max(n2_values_valid)))
+Generating a dataframe which I will save separately for the sample size.
+```{r}
 
 
-z_alpha <- qnorm(1-0.05/2)        
-z_beta <- 0.85
-zfunc <- z_alpha + z_beta  
-print("sample size for a change of 0.3 units cpue")
-print(compute_n2_nleqslv(0.3))
-n2_values <- sapply(d_values, compute_n2_nleqslv)
-# Filter valid results
-valid_idx <- !is.na(n2_values)
-d_values_valid <- d_values[valid_idx]
-n2_values_valid <- n2_values[valid_idx]
+get_zalpha<- function(alpha, beta)
+{
+  return(qnorm(1-alpha/2)-qnorm(beta))
+}
 
-# Plot
+list_alpha<- c(0.05, 0.1,0.15)
+list_beta<- c(0.1,0.15,0.2,0.25,0.3)
+#power is 1-beta
+#list_zalpha<- sapply(list_alpha, get_zalpha)          
 
-plot(d_values_valid, n2_values_valid, type = "b", pch = 19, col = "darkgreen",
-     xlab = "change (d, units cpue)", ylab = "Required n2",
-     main = "Required Sample Size n2 for alpha = 0.05, beta = 0.85",
-     ylim = c(min(n2_values_valid), max(n2_values_valid)))
+#list_beta<- c(0.7,0.75,0.8,0.85,0.9,0.95)
+list_d<- c(0.01,0.05,0.1,0.15,0.2, 0.25,0.3)
+
+
+df_combos <- expand.grid(
+  alpha = list_alpha,
+  beta = list_beta,
+  d = list_d
+)
+df_combos<- df_combos%>%
+  rowwise()%>%
+  mutate(z_func= get_zalpha(alpha, beta))%>%
+  ungroup()
+
+
+
+get_zalpha(0.1, 0.2)
+compute_n2_nleqslv(d = 0.2, zfunc = get_zalpha(0.1, 0.2))
+df_combos
+
+ df_combos <- df_combos %>%
+  rowwise() %>%  # ensures mutate sees each row individually
+  mutate(result = compute_n2_nleqslv(d = d, zfunc = z_func)) %>%
+  ungroup()%>%
+  select(-c(z_func))%>%
+  mutate(
+    power = 1-beta
+  )%>%
+  select(-c(beta))
+ 
+ acceptable_ranges<- df_combos%>%
+   filter(result < 450)%>%
+   filter(power == c(0.75,0.8, 0.85))
+
+ 
+write.csv(acceptable_ranges, "80_power.csv")
+write.csv(df_combos,"samp_size_by_precision_summit.csv")
 
 ```
